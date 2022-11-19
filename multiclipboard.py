@@ -2,6 +2,9 @@ import sys
 import clipboard
 import json
 import os
+from PIL import ImageGrab, Image
+import base64
+from io import BytesIO
 
 
 def main():
@@ -47,11 +50,18 @@ class ClipboardController:
             json.dump(self.data, file)
 
     def replace_element(self, key):
-        print("Key existed (" + self.data[key] + ")")
+        if len(self.data[key]) < 1000:
+            print("Key existed (" + self.data[key] + ")")
+        else:
+            print("Key existed (Image)")
         print("Do you want to replace it? (Y/N)")
         replace_response = input("> ")
         if replace_response == "Y":
-            self.data[key] = clipboard.paste()
+            if self.verify_image(ImageGrab.grabclipboard()):
+                data = self.convert_image_to_string()
+            else:
+                data = clipboard.paste()
+            self.data[key] = data
             self.save_element()
             print("Data replaced in clipboard")
         elif replace_response == "N":
@@ -64,20 +74,44 @@ class ClipboardController:
             data = json.load(file)
             return data
 
+
+    def verify_image(self, data):
+        if data is None:
+            return False
+        else:
+            return True
+
+
+    def convert_image_to_string(self):
+        img = ImageGrab.grabclipboard()
+        buffer = BytesIO()
+        img.save(buffer, format="JPEG")
+        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+
     def save(self):
         key = input("Enter your key \n > ")
         if key in self.data:
             self.replace_element(key)
         else:
-            self.data[key] = clipboard.paste()
+            if self.verify_image(ImageGrab.grabclipboard()):
+                data = self.convert_image_to_string()
+            else:
+                data = clipboard.paste()
+            self.data[key] = data
             self.save_element()
             print("Data saved in clipboard")
 
     def load(self):
         key = input("Enter your key \n > ")
         if key in self.data:
-            clipboard.copy(self.data[key])
-            print("Data copied in clipboard")
+            print(self.data[key])
+            if len(self.data[key]) > 50:
+                image = self.data[key].encode("utf-8")
+                Image.open(BytesIO(base64.b64decode(image))).show()
+            else:
+                clipboard.copy(self.data[key])
+                print("Data copied in clipboard")
         else:
             print("Key doesn't exist.")
 
@@ -97,7 +131,10 @@ class ClipboardController:
     def list_elements(self):
         print("=============================================")
         for key in self.data:
-            print("Key: " + key + " || Data: " + self.data[key])
+            if len(self.data[key]) < 1000:
+                print("Key: " + key + " || Data: " + self.data[key])
+            else:
+                print("Key: " + key + " || Data: Image")
         print("=============================================")
 
 
